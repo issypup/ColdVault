@@ -3,7 +3,7 @@
 
 Version: 0.9.0-beta
 
-A fully offline encrypted credential vault, built with Node.js and Blessed.
+A fully offline Offline encrypted credential vault, built with Node.js and Blessed.
 
 ColdVault combines:
 
@@ -28,7 +28,7 @@ All vault data is encrypted at rest using modern authenticated encryption.
 ColdVault uses:
 
 - AES-256-GCM authenticated encryption
-- scrypt key derivation
+- Argon2id key derivation
 - Per-vault random salts
 - Per-encryption random IVs
 - Authentication tags for tamper detection
@@ -47,9 +47,15 @@ Example envelope structure:
 ```json
 {
   "encrypted": true,
-  "version": 1,
-  "kdf": "scrypt",
+  "version": 2,
+  "kdf": "argon2id",
   "cipher": "aes-256-gcm",
+  "argon2id": {
+    "memoryCost": 65536,
+    "timeCost": 3,
+    "parallelism": 1,
+    "hashLength": 32
+  },
   "salt": "...",
   "iv": "...",
   "authTag": "...",
@@ -80,22 +86,23 @@ If any encrypted data is modified, decryption fails safely.
 
 ---
 
-## scrypt Key Derivation
+## Argon2id Key Derivation
 
 Your master password is never used directly as an encryption key.
 
 Instead, ColdVault derives a secure encryption key using:
 
 ```text
-scrypt
+Argon2id
 ```
 
 Parameters:
 
 ```text
-N = 65536
-r = 8
-p = 1
+memoryCost = 65536
+timeCost = 3
+parallelism = 1
+hashLength = 32
 ```
 
 This helps protect against:
@@ -507,6 +514,7 @@ It is NOT intended to defend against:
 
 Main libraries used:
 
+* argon2
 * blessed
 * otplib
 * nanoid
