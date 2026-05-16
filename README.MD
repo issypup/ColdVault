@@ -435,16 +435,40 @@ GitHub Releases include:
 
 # Data Storage
 
-Vault data is stored locally in:
+ColdVault stores all encrypted vault data locally using standard operating system application-data directories.
 
+## Vault Database
+
+### Windows
 ```text
-/ data / ColdVault.json
+%APPDATA%\IssyThePup\ColdVault\ColdVault.json
 ```
 
-Crash logs:
-
+### Linux
 ```text
-ColdVault-crash.log
+~/.config/IssyThePup/ColdVault/ColdVault.json
+```
+
+### macOS
+```text
+~/Library/Application Support/IssyThePup/ColdVault/ColdVault.json
+```
+
+## Crash Logs
+
+### Windows
+```text
+%APPDATA%\IssyThePup\ColdVault\ColdVault-crash.log
+```
+
+### Linux
+```text
+~/.config/IssyThePup/ColdVault/ColdVault-crash.log
+```
+
+### macOS
+```text
+~/Library/Application Support/IssyThePup/ColdVault/ColdVault-crash.log
 ```
 
 ---
@@ -484,7 +508,9 @@ It is NOT intended to defend against:
 # Recommended Practices
 
 - Use a strong master password
+- Enable full disk encryption
 - Keep backups
+- Lock your terminal when away
 - Avoid running untrusted software
 
 ---
@@ -503,5 +529,13 @@ Main libraries used:
 # License
 
 ## MIT License
+
+The MIT license is recommended for this project because it:
+
+- is simple
+- is developer friendly
+- allows modification and redistribution
+- encourages community contributions
+- works well for open-source tooling
 
 ---
