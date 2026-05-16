@@ -445,8 +445,6 @@ If you do not want to build manually, you can download the latest binaries from 
 GitHub Releases include:
 
 * Windows builds
-* Linux builds
-* macOS builds
 
 ---
 
