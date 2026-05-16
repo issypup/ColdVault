@@ -1,0 +1,36 @@
+{
+  "name": "ColdVault",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "bin": "build/index.js",
+  "scripts": {
+    "start": "node index.js",
+    "bundle": "esbuild index.js --bundle --platform=node --format=cjs --external:blessed --external:argon2 --banner:js=\"const import_meta_url = require('url').pathToFileURL(__filename).href;\" --define:import.meta.url=import_meta_url --outfile=build/index.js",
+    "build": "npm run bundle && pkg . --targets \"node18-win-x64,node18-linux-x64,node18-macos-x64\" --options no-deprecation --out-path dist"
+  },
+  "dependencies": {
+    "argon2": "^0.44.0",
+    "blessed": "^0.1.81",
+    "nanoid": "^5.0.7",
+    "otplib": "^12.0.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0",
+    "pkg": "^5.8.1"
+  },
+  "pkg": {
+    "scripts": [
+      "build/index.js",
+      "node_modules/blessed/lib/**/*.js",
+      "node_modules/blessed/lib/widgets/*.js"
+    ],
+    "assets": [
+      "*.json",
+      "node_modules/blessed/package.json",
+      "node_modules/blessed/usr/**/*",
+      "node_modules/argon2/**/*"
+    ]
+  }
+}
