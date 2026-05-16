@@ -522,15 +522,6 @@ Main libraries used:
 # License
 
 ## MIT License
-
-The MIT license is recommended for this project because it:
-
-* is simple
-* is developer friendly
-* allows modification and redistribution
-* encourages community contributions
-* works well for open-source tooling
-
 ---
 
 ```
