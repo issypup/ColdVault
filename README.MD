@@ -484,9 +484,7 @@ It is NOT intended to defend against:
 # Recommended Practices
 
 - Use a strong master password
-- Enable full disk encryption
 - Keep backups
-- Lock your terminal when away
 - Avoid running untrusted software
 
 ---
