@@ -1,4 +1,4 @@
-````md
+md
 # ColdVault
 
 Version: 0.9.0-beta
@@ -43,7 +43,7 @@ The encrypted database contains metadata describing:
 - encrypted payload
 
 Example envelope structure:
-
+````
 ```json
 {
   "encrypted": true,
