@@ -1,6 +1,7 @@
 // ============================================================================
 // ColdVault.js
 // ----------------------------------------------------------------------------
+const APP_VERSION = '0.9.0-beta';
 // Fully offline encrypted credential vault built with Node.js and Blessed.
 //
 // File layout:
@@ -953,7 +954,7 @@ function destroyTransientScreenChildren() {
 const screen = blessed.screen({
   smartCSR: true,
   fullUnicode: true,
-  title: 'ColdVault'
+  title: `ColdVault v${APP_VERSION}`
 });
 
 function isTyping() {
