@@ -1,3 +1,4 @@
+
 # ColdVault
 
 Version: 0.9.0-beta
@@ -134,20 +135,232 @@ If verification fails:
 
 ColdVault is fully local.
 
-No cloud syncing.  
-No telemetry.  
-No analytics.  
+No cloud syncing.
+No telemetry.
+No analytics.
 No accounts.
 
 Your vault remains entirely on your machine unless YOU choose to move it.
 
 ---
 
+# Password Manager Features
+
+## Account Storage
+
+Store:
+
+- usernames
+- passwords
+- URLs
+- tags
+- notes
+
+Each account includes:
+
+- timestamps
+- unique IDs
+- searchable metadata
+
+---
+
+## Password Generator
+
+Generate strong random passwords using cryptographically secure randomness.
+
+Generated passwords include:
+
+- uppercase letters
+- lowercase letters
+- numbers
+- symbols
+
+Ambiguous characters are intentionally excluded where possible.
+
+---
+
+## Password Breach Checking
+
+ColdVault integrates with Have I Been Pwned using the k-anonymity model.
+
+Only the first 5 characters of a SHA-1 hash are sent.
+
+Your actual password never leaves your machine.
+
+This allows safe breach checking without exposing passwords.
+
+---
+
+# OTP Authenticator Features
+
+Supports:
+
+- TOTP
+- HOTP
+
+Compatible with:
+
+- Google Authenticator
+- Aegis
+- Authy
+- 2FAS
+- Microsoft Authenticator
+- Bitwarden
+- most RFC-compatible OTP apps
+
+---
+
+## otpauth:// Support
+
+Import:
+
+```text
+otpauth://
+```
+
+URIs directly.
+
+Export OTP entries back into otpauth format for migration or backup.
+
+---
+
+## Supported Algorithms
+
+- SHA1
+- SHA256
+- SHA512
+
+---
+
+## Custom OTP Settings
+
+Per-entry support for:
+
+- digits
+- period
+- counter
+- algorithm
+
+---
+
+# Secure Notes
+
+Store encrypted notes directly inside the vault.
+
+Useful for:
+
+- recovery codes
+- API keys
+- license keys
+- SSH snippets
+- private text
+
+All notes are encrypted using the same vault encryption system.
+
+---
+
+# Auto Locking
+
+ColdVault automatically locks itself after inactivity.
+
+This helps protect against:
+
+- unattended terminals
+- accidental exposure
+- shoulder surfing
+
+The vault can also be manually locked at any time.
+
+---
+
+# Clipboard Integration
+
+Quickly copy:
+
+- passwords
+- usernames
+- URLs
+- OTP codes
+
+Supports:
+
+- Windows
+- macOS
+- Linux
+
+Linux clipboard support includes:
+
+- wl-copy
+- xclip
+- xsel
+
+---
+
+# Crash Logging
+
+Unhandled crashes are written to:
+
+```text
+ColdVault-crash.log
+```
+
+This helps with:
+
+- debugging
+- issue reporting
+- troubleshooting
+
+---
+
+# Legacy Vault Migration
+
+ColdVault can automatically import older:
+
+- TOTP databases
+- password databases
+- notes databases
+
+Legacy files are upgraded into the new encrypted unified vault format.
+
+---
+
+# Installation
+
+## Requirements
+
+- Node.js 18+
+- npm
+
+---
+
+# Clone the Repository
+
+```bash
+git clone https://github.com/YOUR_USERNAME/ColdVault.git
+cd ColdVault
+```
+
+---
+
+# Install Dependencies
+
+```bash
+npm install
+```
+
+---
+
+# Run the Application
+
+```bash
+node index.js
+```
+
+---
+
 # Build Your Own Executable
 
-ColdVault can also be packaged into a standalone executable using:
-
-## [pkg](https://github.com/vercel/pkg)
+ColdVault can also be packaged into a standalone executable using pkg.
 
 Install pkg:
 
@@ -205,5 +418,92 @@ npm run build
 ```
 
 should be executed directly on the target operating system.
+
+---
+
+# Download Prebuilt Releases
+
+If you do not want to build manually, you can download the latest binaries from the repository Releases tab.
+
+GitHub Releases include:
+
+- Windows builds
+- Linux builds
+- macOS builds
+
+---
+
+# Data Storage
+
+Vault data is stored locally in:
+
+```text
+/ data / ColdVault.json
+```
+
+Crash logs:
+
+```text
+ColdVault-crash.log
+```
+
+---
+
+# Security Notes
+
+## Important
+
+If you forget your master password:
+
+- your data cannot be recovered
+- there are no backdoors
+- there is no password reset system
+
+This is intentional.
+
+---
+
+# Threat Model
+
+ColdVault is designed to protect against:
+
+- casual theft
+- local data exposure
+- stolen vault files
+- password reuse risks
+- accidental plaintext leaks
+
+It is NOT intended to defend against:
+
+- malware already running on your machine
+- hardware keyloggers
+- compromised operating systems
+
+---
+
+# Recommended Practices
+
+- Use a strong master password
+- Enable full disk encryption
+- Keep backups
+- Lock your terminal when away
+- Avoid running untrusted software
+
+---
+
+# Dependencies
+
+Main libraries used:
+
+- argon2
+- blessed
+- otplib
+- nanoid
+
+---
+
+# License
+
+## MIT License
 
 ---
