@@ -1,6 +1,6 @@
 {
   "name": "ColdVault",
-  "version": "1.0.0",
+  "version": "0.9.1-beta",
   "private": true,
   "type": "module",
   "main": "index.js",
