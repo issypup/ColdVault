@@ -45,17 +45,71 @@ const __dirname = path.dirname(__filename);
 
 const isPkg = typeof process.pkg !== 'undefined';
 
-const APP_DIR = isPkg
-  ? path.dirname(process.execPath)
-  : process.cwd();
+// -----------------------------------------------------------------------------
+// Cross-platform application data directory
+// -----------------------------------------------------------------------------
+// Windows:
+//   %APPDATA%\IssyThePup\ColdVault
+//
+// Linux:
+//   ~/.config/IssyThePup/ColdVault
+//
+// macOS:
+//   ~/Library/Application Support/IssyThePup/ColdVault
+// -----------------------------------------------------------------------------
+function getAppDataRoot() {
+  if (process.platform === 'win32') {
+    return process.env.APPDATA ||
+      path.join(
+        process.env.USERPROFILE || process.cwd(),
+        'AppData',
+        'Roaming'
+      );
+  }
 
-const DATA_DIR = path.join(APP_DIR, 'data');
-const DATA_FILE = path.join(DATA_DIR, 'ColdVault.json');
-const CRASH_LOG_FILE = path.join(APP_DIR, 'ColdVault-crash.log');
+  if (process.platform === 'darwin') {
+    return path.join(
+      process.env.HOME || process.cwd(),
+      'Library',
+      'Application Support'
+    );
+  }
+
+  // Linux / BSD / other Unix
+  return process.env.XDG_CONFIG_HOME ||
+    path.join(
+      process.env.HOME || process.cwd(),
+      '.config'
+    );
+}
+
+const APP_DATA_ROOT = getAppDataRoot();
+
+const APP_DIR = path.join(
+  APP_DATA_ROOT,
+  'IssyThePup',
+  'ColdVault'
+);
+
+const DATA_DIR = APP_DIR;
+
+const DATA_FILE = path.join(
+  DATA_DIR,
+  'ColdVault.json'
+);
+
+const CRASH_LOG_FILE = path.join(
+  APP_DIR,
+  'ColdVault-crash.log'
+);
+
+// Ensure folders exist
+fs.mkdirSync(DATA_DIR, { recursive: true });
 
 function writeCrashLog(error) {
   try {
     const msg = error && error.stack ? error.stack : String(error);
+
     fs.appendFileSync(
       CRASH_LOG_FILE,
       `\n[${new Date().toISOString()}]\n${msg}\n`,
@@ -65,7 +119,9 @@ function writeCrashLog(error) {
 }
 
 function hardExit(code = 1) {
-  try { process.stdout.write('\x1b[0m\x1b[?25h\n'); } catch {}
+  try {
+    process.stdout.write('\x1b[0m\x1b[?25h\n');
+  } catch {}
 
   // pkg + blessed can crash during process.exit() cleanup if screen setup failed.
   // Removing exit listeners prevents blessed from calling Screen.destroy() on
@@ -79,15 +135,31 @@ function hardExit(code = 1) {
 
 process.prependListener('uncaughtException', (error) => {
   writeCrashLog(error);
-  console.error('Fatal error. Details written to:', CRASH_LOG_FILE);
-  console.error(error && error.stack ? error.stack : error);
+
+  console.error(
+    'Fatal error. Details written to:',
+    CRASH_LOG_FILE
+  );
+
+  console.error(
+    error && error.stack ? error.stack : error
+  );
+
   hardExit(1);
 });
 
 process.prependListener('unhandledRejection', (reason) => {
   writeCrashLog(reason);
-  console.error('Unhandled rejection. Details written to:', CRASH_LOG_FILE);
-  console.error(reason && reason.stack ? reason.stack : reason);
+
+  console.error(
+    'Unhandled rejection. Details written to:',
+    CRASH_LOG_FILE
+  );
+
+  console.error(
+    reason && reason.stack ? reason.stack : reason
+  );
+
   hardExit(1);
 });
 
@@ -112,8 +184,6 @@ const ARGON2_MEMORY_COST = 65536;
 const ARGON2_TIME_COST = 3;
 const ARGON2_PARALLELISM = 1;
 const ARGON2_HASH_LENGTH = 32;
-
-fs.mkdirSync(DATA_DIR, { recursive: true });
 
 function requestBiggerTerminal(columns = 132, rows = 34) {
   try {
