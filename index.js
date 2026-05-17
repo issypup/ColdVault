@@ -300,22 +300,22 @@ async function decryptDbObject(envelope, password) {
   const decipher = crypto.createDecipheriv(CIPHER, key, iv);
   decipher.setAuthTag(authTag);
 
-const decrypted = Buffer.concat([
-  decipher.update(encrypted),
-  decipher.final()
-]);
+  const decrypted = Buffer.concat([
+    decipher.update(encrypted),
+    decipher.final()
+  ]);
 
-let parsed;
+  let parsed;
 
-try {
-  parsed = JSON.parse(decrypted.toString('utf8'));
-} finally {
-  secureZeroBuffer(decrypted);
-}
+  try {
+    parsed = JSON.parse(decrypted.toString('utf8'));
+  } finally {
+    secureZeroBuffer(decrypted);
+  }
 
-MASTER_KEY = password;
+  MASTER_KEY = password;
 
-return normaliseVault(parsed);
+  return normaliseVault(parsed);
 }
 
 function readJsonFile(file) {
@@ -1268,12 +1268,12 @@ function getHelpContent() {
     );
   }
 
-if (currentView === 'notes') {
-  return (
-    '{bold}1{/bold} OTP  {bold}2{/bold} accounts  {bold}3{/bold} notes  {bold}↑/↓{/bold} select  {bold}a{/bold} add  {bold}e{/bold} edit  {bold}d{/bold} delete  {bold}s{/bold} search\n' +
-    '{bold}r{/bold} reveal note  {bold}m{/bold} master password  {bold}l{/bold} lock  {bold}q{/bold} quit'
-  );
-}
+  if (currentView === 'notes') {
+    return (
+      '{bold}1{/bold} OTP  {bold}2{/bold} accounts  {bold}3{/bold} notes  {bold}↑/↓{/bold} select  {bold}a{/bold} add  {bold}e{/bold} edit  {bold}d{/bold} delete  {bold}s{/bold} search\n' +
+      '{bold}r{/bold} reveal note  {bold}m{/bold} master password  {bold}l{/bold} lock  {bold}q{/bold} quit'
+    );
+  }
 
   return (
     '{bold}1{/bold} OTP  {bold}2{/bold} accounts  {bold}3{/bold} notes  {bold}↑/↓{/bold} select  {bold}a{/bold} add  {bold}e{/bold} edit  {bold}d{/bold} delete  {bold}s{/bold} search  {bold}b{/bold} breach check\n' +
@@ -1433,7 +1433,9 @@ function updateDetails() {
       codeBig.setContent('------');
       codePlain.setContent('------');
       details.setContent(
-        `{bold}Search:{/bold} ${getActiveSearch() || '(none)'}\n\n` +
+        `{bold}Search:{/bold} ${getActiveSearch() || '(none)'}
+
+` +
         'No OTP entry selected.'
       );
       screen.render();
@@ -1445,11 +1447,16 @@ function updateDetails() {
       : '••••••••••••';
 
     details.setContent(
-      `Name: {bold}${e.name}{/bold}\n` +
-      `Digits: ${sanitizeDigits(e.digits)}   Period: ${sanitizePeriod(e.period)}s   Algo: ${sanitizeAlgorithm(e.algorithm).toUpperCase()}\n` +
-      `Secret: ${secretText}\n` +
-      `Reveal mode: ${revealSecret ? 'ON' : 'OFF'}\n` +
-      `Search: ${getActiveSearch() || '(none)'}\n` +
+      `Name: {bold}${e.name}{/bold}
+` +
+      `Digits: ${sanitizeDigits(e.digits)}   Period: ${sanitizePeriod(e.period)}s   Algo: ${sanitizeAlgorithm(e.algorithm).toUpperCase()}
+` +
+      `Secret: ${secretText}
+` +
+      `Reveal mode: ${revealSecret ? 'ON' : 'OFF'}
+` +
+      `Search: ${getActiveSearch() || '(none)'}
+` +
       `File: ${DATA_FILE}`
     );
 
@@ -1457,37 +1464,51 @@ function updateDetails() {
     return;
   }
 
-if (currentView === 'notes') {
-  if (!e) {
+  if (currentView === 'notes') {
+    if (!e) {
+      accountDetails.setContent(
+        `{bold}Search:{/bold} ${getActiveSearch() || '(none)'}
+
+` +
+        'No secure note selected.'
+      );
+      screen.render();
+      return;
+    }
+
+    const bodyText = revealNote
+      ? (e.body || '')
+      : maskValue(e.body || '');
+
     accountDetails.setContent(
-      `{bold}Search:{/bold} ${getActiveSearch() || '(none)'}\n\n` +
-      'No secure note selected.'
+      `{bold}${e.title}{/bold}
+
+` +
+      `Tags: ${formatTags(e.tags)}
+
+` +
+      `{bold}Body:{/bold}
+${bodyText}
+
+` +
+      `Reveal mode: ${revealNote ? 'ON' : 'OFF'}
+` +
+      `Search: ${getActiveSearch() || '(none)'}
+` +
+      `File: ${DATA_FILE}
+` +
+      `Updated: ${e.updatedAt || ''}`
     );
+
     screen.render();
     return;
   }
 
-  const bodyText = revealNote
-    ? (e.body || '')
-    : maskValue(e.body || '');
-
-  accountDetails.setContent(
-    `{bold}${e.title}{/bold}\n\n` +
-    `Tags: ${formatTags(e.tags)}\n\n` +
-    `{bold}Body:{/bold}\n${bodyText}\n\n` +
-    `Reveal mode: ${revealNote ? 'ON' : 'OFF'}\n` +
-    `Search: ${getActiveSearch() || '(none)'}\n` +
-    `File: ${DATA_FILE}\n` +
-    `Updated: ${e.updatedAt || ''}`
-  );
-
-  screen.render();
-  return;
-}
-
   if (!e) {
     accountDetails.setContent(
-      `{bold}Search:{/bold} ${getActiveSearch() || '(none)'}\n\n` +
+      `{bold}Search:{/bold} ${getActiveSearch() || '(none)'}
+
+` +
       'No account selected.'
     );
     screen.render();
@@ -1497,16 +1518,30 @@ if (currentView === 'notes') {
   const passwordText = revealPassword ? (e.password || '[empty]') : maskValue(e.password);
 
   accountDetails.setContent(
-    `{bold}${e.title}{/bold}\n\n` +
-    `Username: ${e.username || ''}\n` +
-    `Password: ${passwordText}\n` +
-    `URL: ${e.url || ''}\n` +
-    `Tags: ${formatTags(e.tags)}\n\n` +
-    `{bold}Notes:{/bold}\n${e.notes || ''}\n\n` +
-    `Reveal mode: ${revealPassword ? 'ON' : 'OFF'}\n` +
-    `Breach check: press b\n` +
-    `Search: ${getActiveSearch() || '(none)'}\n` +
-    `File: ${DATA_FILE}\n` +
+    `{bold}${e.title}{/bold}
+
+` +
+    `Username: ${e.username || ''}
+` +
+    `Password: ${passwordText}
+` +
+    `URL: ${e.url || ''}
+` +
+    `Tags: ${formatTags(e.tags)}
+
+` +
+    `{bold}Notes:{/bold}
+${e.notes || ''}
+
+` +
+    `Reveal mode: ${revealPassword ? 'ON' : 'OFF'}
+` +
+    `Breach check: press b
+` +
+    `Search: ${getActiveSearch() || '(none)'}
+` +
+    `File: ${DATA_FILE}
+` +
     `Updated: ${e.updatedAt || ''}`
   );
 
@@ -1540,17 +1575,9 @@ function showUnlockModal({ firstOpen = false } = {}) {
 
   modalOpen = true;
 
-  db = normaliseVault({});
-  
-  if (typeof MASTER_KEY === 'string') {
-  MASTER_KEY = secureZeroString(MASTER_KEY);
-}
-  
-  MASTER_KEY = null;
   stopIdleTimer();
   clearVisibleSensitiveData();
-  revealSecret = false;
-  revealPassword = false;
+
   selectedIndex = 0;
   selectedByView = { otp: 0, accounts: 0, notes: 0 };
 
@@ -2166,13 +2193,12 @@ function openAccountForm(initial = {}) {
   };
 
   const generateIntoPassword = () => {
+    const pw = generatePassword(20);
 
-const pw = generatePassword(20);
+    inPass.setValue(pw);
 
-inPass.setValue(pw);
-
-// Zero temporary variable
-secureZeroString(pw);
+    // Zero temporary variable after copying it into the field.
+    secureZeroString(pw);
 
     status.setContent('{green-fg}Generated a password into the password field.{/green-fg}');
     focusField(2);
@@ -2328,12 +2354,12 @@ function copySelectedAccountField(fieldName, label) {
 
   resetIdleTimer();
   const ok = copyTextToClipboard(value);
-  
+
   if (ok) {
-  setTimeout(() => {
-    wipeClipboard();
-  }, 30000); // 30 seconds
-}
+    setTimeout(() => {
+      wipeClipboard();
+    }, 30000); // 30 seconds
+  }
 
   msg.display(
     ok ? `${label} copied to clipboard.` : 'Clipboard copy failed.',
@@ -2382,8 +2408,9 @@ function openTotpForm(initial = {}) {
 
   const makeInput = (top, label, left, width, value = '') => {
     if (label) {
-  blessed.text({ parent: form, top, left: 3, content: label });
-}
+      blessed.text({ parent: form, top, left: 3, content: label });
+    }
+
     const box = blessed.box({
       parent: form,
       top,
@@ -2421,33 +2448,33 @@ function openTotpForm(initial = {}) {
   const inName = makeInput(4, 'Name:', 14, '75%', initial.name || '');
   const inSec = makeInput(6, 'Secret (Base32):', 20, '69%', initial.secret || '');
   const inDigits = makeInput(8, 'Digits:', 15, 6, sanitizeDigits(initial.digits ?? 6));
-  
-const otpExtraLabel = blessed.text({
-  parent: form,
-  top: 10,
-  left: 3,
-  width: 12,
-  content: 'Period (s):'
-});
 
-const inPeriod = makeInput(10, '', 16, 6, sanitizePeriod(initial.period ?? 30));
-const inCounter = makeInput(10, '', 16, 12, sanitizeCounter(initial.counter ?? 0));
-  
+  const otpExtraLabel = blessed.text({
+    parent: form,
+    top: 10,
+    left: 3,
+    width: 12,
+    content: 'Period (s):'
+  });
+
+  const inPeriod = makeInput(10, '', 16, 6, sanitizePeriod(initial.period ?? 30));
+  const inCounter = makeInput(10, '', 16, 12, sanitizeCounter(initial.counter ?? 0));
+
   const inAlg = makeInput(12, 'Algorithm:', 15, 12, sanitizeAlgorithm(initial.algorithm || 'sha1').toUpperCase());
 
   const setOtpType = (nextType) => {
     otpType = sanitizeOtpType(nextType);
     typeBox.setContent(otpType === 'hotp' ? '{bold}HOTP{/bold}  (T/H)' : '{bold}TOTP{/bold}  (T/H)');
 
-if (otpType === 'hotp') {
-  otpExtraLabel.setContent('Counter:');
-  inPeriod.hide();
-  inCounter.show();
-} else {
-  otpExtraLabel.setContent('Period (s):');
-  inCounter.hide();
-  inPeriod.show();
-}
+    if (otpType === 'hotp') {
+      otpExtraLabel.setContent('Counter:');
+      inPeriod.hide();
+      inCounter.show();
+    } else {
+      otpExtraLabel.setContent('Period (s):');
+      inCounter.hide();
+      inPeriod.show();
+    }
 
     screen.render();
   };
