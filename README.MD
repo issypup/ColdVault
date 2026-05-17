@@ -1,7 +1,7 @@
 
 # ColdVault
 
-Version: 0.9.1-beta
+Version: 0.9.2-beta
 
 A fully offline encrypted credential vault, built with Node.js and Blessed.
 

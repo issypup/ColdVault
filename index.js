@@ -1,7 +1,7 @@
 // ============================================================================
 // ColdVault.js
 // ----------------------------------------------------------------------------
-const APP_VERSION = '0.9.0-beta';
+const APP_VERSION = '0.9.2-beta';
 // Fully offline encrypted credential vault built with Node.js and Blessed.
 //
 // File layout:
@@ -300,14 +300,22 @@ async function decryptDbObject(envelope, password) {
   const decipher = crypto.createDecipheriv(CIPHER, key, iv);
   decipher.setAuthTag(authTag);
 
-  const decrypted = Buffer.concat([
-    decipher.update(encrypted),
-    decipher.final()
-  ]);
+const decrypted = Buffer.concat([
+  decipher.update(encrypted),
+  decipher.final()
+]);
 
-  MASTER_KEY = password;
+let parsed;
 
-  return normaliseVault(JSON.parse(decrypted.toString('utf8')));
+try {
+  parsed = JSON.parse(decrypted.toString('utf8'));
+} finally {
+  secureZeroBuffer(decrypted);
+}
+
+MASTER_KEY = password;
+
+return normaliseVault(parsed);
 }
 
 function readJsonFile(file) {
@@ -581,6 +589,57 @@ async function saveDb(nextDb) {
 // ============================================================================
 // 04. General helpers, validation, clipboard, and breach checking
 // ============================================================================
+
+// ---- Secure memory wiping / zeroisation ----
+function secureZeroString(value) {
+  if (typeof value !== 'string') return '';
+
+  try {
+    // Force overwrite attempts
+    let overwrite = '\0'.repeat(value.length);
+
+    value = overwrite;
+    overwrite = '';
+
+  } catch {}
+
+  return '';
+}
+
+function secureZeroBuffer(buffer) {
+  try {
+    if (Buffer.isBuffer(buffer)) {
+      buffer.fill(0);
+    }
+  } catch {}
+}
+
+function wipeClipboard() {
+  try {
+    return copyTextToClipboard('');
+  } catch {}
+
+  return false;
+}
+
+function wipeObjectStrings(obj) {
+  try {
+    if (!obj || typeof obj !== 'object') return;
+
+    for (const key of Object.keys(obj)) {
+      const value = obj[key];
+
+      if (typeof value === 'string') {
+        obj[key] = '';
+      } else if (Buffer.isBuffer(value)) {
+        value.fill(0);
+      } else if (typeof value === 'object' && value !== null) {
+        wipeObjectStrings(value);
+      }
+    }
+  } catch {}
+}
+
 // ---- Input sanitisation / formatting ----
 function sanitizeAlgorithm(a) {
   const v = (a || 'sha1').toString().trim().toLowerCase();
@@ -645,8 +704,9 @@ function generatePassword(length = 20) {
 }
 
 function copyTextToClipboard(text) {
-  const value = String(text || '');
-  if (!value) return false;
+  // Important: allow an empty string through.
+  // wipeClipboard() depends on this to actually clear the clipboard.
+  const value = text === undefined || text === null ? '' : String(text);
 
   const attempts = [];
 
@@ -979,17 +1039,53 @@ let revealSecret = false;
 let revealPassword = false;
 let modalOpen = false;
 let resizeTimer = null;
+let revealNote = false;
+let unlockBusy = false;
+let closed = false;
+
+// Anti-bruteforce unlock delay
+let failedUnlockAttempts = 0;
+
+const FAILED_UNLOCK_DELAYS_MS = [
+  1000,
+  2000,
+  4000,
+  8000
+];
 
 const AUTO_LOCK_MS = 5 * 60 * 1000;
 let idleLockTimer = null;
 
 function clearVisibleSensitiveData() {
   try {
+    // Clear visible UI elements
     codeBig.setContent('------');
     codePlain.setContent('------');
     progress.setProgress(0);
     details.setContent('');
     accountDetails.setContent('');
+
+    // Reset reveal states
+    revealSecret = false;
+    revealPassword = false;
+    revealNote = false;
+
+    // Wipe clipboard
+    wipeClipboard();
+
+    // Wipe runtime vault contents
+    wipeObjectStrings(db);
+
+    // Replace runtime DB with fresh empty structure
+    db = normaliseVault({});
+
+    // Wipe master key
+    if (typeof MASTER_KEY === 'string') {
+      MASTER_KEY = secureZeroString(MASTER_KEY);
+    }
+
+    MASTER_KEY = null;
+
   } catch {}
 }
 
@@ -1172,12 +1268,12 @@ function getHelpContent() {
     );
   }
 
-  if (currentView === 'notes') {
-    return (
-      '{bold}1{/bold} OTP  {bold}2{/bold} accounts  {bold}3{/bold} notes  {bold}↑/↓{/bold} select  {bold}a{/bold} add  {bold}e{/bold} edit  {bold}d{/bold} delete  {bold}s{/bold} search\n' +
-      '{bold}m{/bold} master password  {bold}l{/bold} lock  {bold}q{/bold} quit'
-    );
-  }
+if (currentView === 'notes') {
+  return (
+    '{bold}1{/bold} OTP  {bold}2{/bold} accounts  {bold}3{/bold} notes  {bold}↑/↓{/bold} select  {bold}a{/bold} add  {bold}e{/bold} edit  {bold}d{/bold} delete  {bold}s{/bold} search\n' +
+    '{bold}r{/bold} reveal note  {bold}m{/bold} master password  {bold}l{/bold} lock  {bold}q{/bold} quit'
+  );
+}
 
   return (
     '{bold}1{/bold} OTP  {bold}2{/bold} accounts  {bold}3{/bold} notes  {bold}↑/↓{/bold} select  {bold}a{/bold} add  {bold}e{/bold} edit  {bold}d{/bold} delete  {bold}s{/bold} search  {bold}b{/bold} breach check\n' +
@@ -1361,28 +1457,33 @@ function updateDetails() {
     return;
   }
 
-  if (currentView === 'notes') {
-    if (!e) {
-      accountDetails.setContent(
-        `{bold}Search:{/bold} ${getActiveSearch() || '(none)'}\n\n` +
-        'No secure note selected.'
-      );
-      screen.render();
-      return;
-    }
-
+if (currentView === 'notes') {
+  if (!e) {
     accountDetails.setContent(
-      `{bold}${e.title}{/bold}\n\n` +
-      `Tags: ${formatTags(e.tags)}\n\n` +
-      `{bold}Body:{/bold}\n${e.body || ''}\n\n` +
-      `Search: ${getActiveSearch() || '(none)'}\n` +
-      `File: ${DATA_FILE}\n` +
-      `Updated: ${e.updatedAt || ''}`
+      `{bold}Search:{/bold} ${getActiveSearch() || '(none)'}\n\n` +
+      'No secure note selected.'
     );
-
     screen.render();
     return;
   }
+
+  const bodyText = revealNote
+    ? (e.body || '')
+    : maskValue(e.body || '');
+
+  accountDetails.setContent(
+    `{bold}${e.title}{/bold}\n\n` +
+    `Tags: ${formatTags(e.tags)}\n\n` +
+    `{bold}Body:{/bold}\n${bodyText}\n\n` +
+    `Reveal mode: ${revealNote ? 'ON' : 'OFF'}\n` +
+    `Search: ${getActiveSearch() || '(none)'}\n` +
+    `File: ${DATA_FILE}\n` +
+    `Updated: ${e.updatedAt || ''}`
+  );
+
+  screen.render();
+  return;
+}
 
   if (!e) {
     accountDetails.setContent(
@@ -1440,6 +1541,11 @@ function showUnlockModal({ firstOpen = false } = {}) {
   modalOpen = true;
 
   db = normaliseVault({});
+  
+  if (typeof MASTER_KEY === 'string') {
+  MASTER_KEY = secureZeroString(MASTER_KEY);
+}
+  
   MASTER_KEY = null;
   stopIdleTimer();
   clearVisibleSensitiveData();
@@ -1579,55 +1685,99 @@ try {
     resetIdleTimer();
   };
 
-  const tryUnlock = async () => {
-    const password = String(input.getValue() || '');
+const tryUnlock = async () => {
+  if (unlockBusy) return;
+  unlockBusy = true;
 
-    if (!password.trim()) {
-      status.setContent('{red-fg}Password cannot be empty.{/red-fg}');
-      input.clearValue();
+  const password = String(input.getValue() || '');
+
+  if (!password.trim()) {
+    status.setContent('{red-fg}Password cannot be empty.{/red-fg}');
+    input.clearValue();
+
+    try {
       input.focus();
       input.readInput();
-      screen.render();
-      setTimeout(placePasswordCursor, 0);
+    } catch {}
+
+    screen.render();
+    setTimeout(placePasswordCursor, 0);
+
+    unlockBusy = false;
+    return;
+  }
+
+  try {
+    // Try immediately first, so the correct password never waits.
+    db = await loadDbFromDisk(password);
+
+    failedUnlockAttempts = 0;
+    unlockBusy = false;
+
+    await closeModal();
+
+  } catch (err) {
+    failedUnlockAttempts += 1;
+
+    const message = String(err?.message || err || '');
+
+    const isAuthFailure =
+      message.includes('Unsupported state or unable to authenticate data') ||
+      message.includes('bad decrypt') ||
+      message.includes('authenticate data');
+
+    if (!isAuthFailure) {
+      try {
+        writeCrashLog(err);
+      } catch {}
+    }
+
+    const delayMs = FAILED_UNLOCK_DELAYS_MS[
+      Math.min(
+        failedUnlockAttempts - 1,
+        FAILED_UNLOCK_DELAYS_MS.length - 1
+      )
+    ];
+
+    if (isNewVault) {
+      status.setContent(
+        '{red-fg}Failed to create vault. See ColdVault-crash.log if this continues.{/red-fg}'
+      );
+    } else {
+      status.setContent(
+        `{red-fg}Wrong password or corrupted vault/database.{/red-fg}\n` +
+        `{yellow-fg}Locked for ${Math.ceil(delayMs / 1000)}s...{/yellow-fg}`
+      );
+    }
+
+    input.clearValue();
+    screen.render();
+
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+
+    if (closed || !modalOpen || !input.parent) {
+      unlockBusy = false;
       return;
     }
 
-    try {
-      db = await loadDbFromDisk(password);
-      await closeModal();
-} catch (err) {
-  const message = String(err?.message || err || '');
+    status.setContent('{gray-fg}Try again.{/gray-fg}');
 
-  const isAuthFailure =
-    message.includes('Unsupported state or unable to authenticate data') ||
-    message.includes('bad decrypt') ||
-    message.includes('authenticate data');
-
-  // Wrong password is expected, not a crash.
-  if (!isAuthFailure) {
     try {
-      writeCrashLog(err);
+      input.focus();
+      input.readInput();
     } catch {}
+
+    screen.render();
+
+    setTimeout(() => {
+      if (!closed && modalOpen && input.parent) {
+        placePasswordCursor();
+      }
+    }, 0);
+
+    unlockBusy = false;
   }
-
-  if (isNewVault) {
-    status.setContent(
-      '{red-fg}Failed to create vault. See ColdVault-crash.log if this continues.{/red-fg}'
-    );
-  } else {
-    status.setContent(
-      '{red-fg}Wrong password or corrupted vault/database.{/red-fg}'
-    );
-  }
-
-  input.clearValue();
-  input.focus();
-  input.readInput();
-
-  screen.render();
-  setTimeout(placePasswordCursor, 0);
-}
-  };
+};
 
   input.on('submit', tryUnlock);
 
@@ -1999,6 +2149,16 @@ function openAccountForm(initial = {}) {
       btnCancel.removeListener('press', close);
     } catch {}
 
+    // Wipe account form inputs before destroying the modal.
+    try {
+      inTitle.setValue('');
+      inUser.setValue('');
+      inPass.setValue('');
+      inUrl.setValue('');
+      inTags.setValue('');
+      inNotes.setValue('');
+    } catch {}
+
     try { form.destroy(); } catch {}
 
     list.focus();
@@ -2006,8 +2166,14 @@ function openAccountForm(initial = {}) {
   };
 
   const generateIntoPassword = () => {
-    const pw = generatePassword(20);
-    inPass.setValue(pw);
+
+const pw = generatePassword(20);
+
+inPass.setValue(pw);
+
+// Zero temporary variable
+secureZeroString(pw);
+
     status.setContent('{green-fg}Generated a password into the password field.{/green-fg}');
     focusField(2);
     screen.render();
@@ -2162,6 +2328,12 @@ function copySelectedAccountField(fieldName, label) {
 
   resetIdleTimer();
   const ok = copyTextToClipboard(value);
+  
+  if (ok) {
+  setTimeout(() => {
+    wipeClipboard();
+  }, 30000); // 30 seconds
+}
 
   msg.display(
     ok ? `${label} copied to clipboard.` : 'Clipboard copy failed.',
@@ -2348,6 +2520,16 @@ if (otpType === 'hotp') {
     try {
       btnOk.removeListener('press', submit);
       btnCancel.removeListener('press', close);
+    } catch {}
+
+    // Wipe OTP form inputs before destroying the modal.
+    try {
+      inName.setValue('');
+      inSec.setValue('');
+      inDigits.setValue('');
+      inPeriod.setValue('');
+      inCounter.setValue('');
+      inAlg.setValue('');
     } catch {}
 
     try { form.destroy(); } catch {}
@@ -2698,6 +2880,12 @@ function exportOtpauth() {
   const doCopy = () => {
     const ok = copyTextToClipboard(uri);
 
+  if (ok) {
+  setTimeout(() => {
+    wipeClipboard();
+  }, 30000); // 30 seconds
+}
+
     status.setContent(
       ok
         ? '{green-fg}Copied full otpauth URL to clipboard.{/green-fg}'
@@ -2999,6 +3187,13 @@ function showHotpGenerateModal() {
 
     resetIdleTimer();
     const ok = copyTextToClipboard(code);
+	
+	  if (ok) {
+  setTimeout(() => {
+    wipeClipboard();
+  }, 30000); // 30 seconds
+}
+	
     close();
 
     flashResult(' HOTP Code ', ok ? 'Copied. Counter not changed.' : 'Clipboard copy failed. Counter not changed.');
@@ -3010,6 +3205,13 @@ function showHotpGenerateModal() {
 
     resetIdleTimer();
     const ok = copyTextToClipboard(code);
+	
+	  if (ok) {
+  setTimeout(() => {
+    wipeClipboard();
+  }, 30000); // 30 seconds
+}
+	
     await incrementSelectedHotpCounter(e.id);
     close();
 
@@ -3088,6 +3290,12 @@ function copyCurrentTotpCode() {
 
   resetIdleTimer();
   const ok = copyTextToClipboard(code);
+
+  if (ok) {
+  setTimeout(() => {
+    wipeClipboard();
+  }, 30000); // 30 seconds
+}
 
   const msg = blessed.message({
     parent: screen,
@@ -3274,6 +3482,13 @@ if (current.textarea) {
     try {
       btnSave.removeListener('press', submit);
       btnCancel.removeListener('press', close);
+    } catch {}
+
+    // Wipe secure-note form inputs before destroying the modal.
+    try {
+      inTitle.setValue('');
+      inTags.setValue('');
+      inBody.setValue('');
     } catch {}
 
     try { form.destroy(); } catch {}
@@ -3987,12 +4202,13 @@ screen.key(['r'], () => {
     revealSecret = !revealSecret;
   } else if (currentView === 'accounts') {
     revealPassword = !revealPassword;
+  } else if (currentView === 'notes') {
+    revealNote = !revealNote;
   }
 
   updateDetails();
   screen.render();
 });
-
 screen.key(['u'], () => {
   copySelectedAccountField('username', 'Username');
 });
